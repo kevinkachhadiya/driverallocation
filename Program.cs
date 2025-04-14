@@ -1,15 +1,41 @@
-var builder = WebApplication.CreateBuilder(args);
+using allocation.Controllers;
+using Microsoft.EntityFrameworkCore;
 
-// Add services to the container.
+var builder = WebApplication.CreateBuilder(args);
+var env = builder.Environment;
+builder.Configuration.AddEnvironmentVariables();
 builder.Services.AddControllersWithViews();
+
+var connectionString = Environment.GetEnvironmentVariable("DATABASE_URL") ??
+                       builder.Configuration.GetConnectionString("DevDB");
+
+var usePostgreSql = Environment.GetEnvironmentVariable("USE_POSTGRESQL") == "true" ||
+                    !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("DATABASE_URL"));
+
+
+builder.Services.AddDbContext<AppDbContext>(options =>
+{
+    // if (usePostgreSql)
+    {
+
+        options.UseNpgsql(connectionString);
+    }
+
+    /*  else
+      {
+
+          options.UseSqlServer(connectionString);
+      }
+    */
+});
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");
-    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
+  
     app.UseHsts();
 }
 
@@ -24,6 +50,13 @@ app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}")
     .WithStaticAssets();
+if (app.Environment.IsDevelopment())
+{
 
-
-app.Run();
+    app.Run();
+}
+else
+{
+    var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
+    app.Run($"http://0.0.0.0:{port}");
+}

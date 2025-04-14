@@ -1,4 +1,6 @@
-﻿@{
+﻿@model IEnumerable<allocation.Models.Drivers>
+
+@{
     ViewData["Title"] = "Home Page";
 }
 
@@ -22,41 +24,38 @@
         <div class="d-flex justify-content-between align-items-center mb-4 px-2">
             <div class="d-flex align-items-center">
                 <i class="bi bi-person-rolodex text-primary fs-3 me-3"></i>
-                <h2 class="text-primary fw-semibold mb-0 fs-4">Active Drivers (24)</h2>
+                <h2 class="text-primary fw-semibold mb-0 fs-4">Active Drivers (@Model.Count(d => !d.IsAllocated))</h2>
             </div>
             <div class="d-flex gap-2">
-                <input type="text" class="form-control search-input" placeholder="Search drivers...">
-                <div class="btn-group">
-                    <button class="btn btn-outline-secondary btn-sm">All</button>
-                    <button class="btn btn-outline-success btn-sm">Assigned</button>
-                    <button class="btn btn-outline-danger btn-sm">Not Assigned</button>
+                <input type="text" class="search-input" placeholder="Search drivers...">
+                <div class="btn-group" id="filterGroup">
+                    <button class="btn btn-outline-secondary btn-sm filter-btn active" data-filter="all">All (@Model.Count())</button>
+                    <button class="btn btn-outline-success btn-sm filter-btn" data-filter="available">Not Assigned (@Model.Count(d => !d.IsAllocated))</button>
+                    <button class="btn btn-outline-danger btn-sm filter-btn" data-filter="assigned">Assigned (@Model.Count(d => d.IsAllocated))</button>
                 </div>
             </div>
         </div>
 
         <div class="row g-4">
-            @for (int i = 1; i <= 12; i++)
+            @foreach (var driver in Model)
             {
-                <div class="col-6 col-md-4 col-lg-3">
+                <div class="col-6 col-md-2" data-status="@(driver.IsAllocated ? "assigned" : "available")" data-driver-name="@driver.Drivername.ToLower()" data-vehicle-number="@driver.DriverVehicalNumber.ToLower()">
                     <div class="driver-card card h-100 shadow-sm hover-shadow transition-all">
                         <div class="card-body p-3">
                             <div class="avatar-status position-relative mb-3">
-                                <div class="avatar bg-gradient-@(i%2 == 0 ? "success" : "secondary") text-white rounded-circle d-inline-flex align-items-center justify-content-center"
+                                <div class="avatar bg-gradient-@(@driver.IsAllocated == false ? "success" : "secondary") text-white rounded-circle d-inline-flex align-items-center justify-content-center"
                                      style="width: 60px; height: 60px;">
-                                    <span class="fs-4">D@(i)</span>
+                                    <span class="fs-4">@driver.Driverid</span>
                                 </div>
-                                <span class="status-dot bg-@(i%2 == 0 ? "success" : "danger")"></span>
+                                <span class="status-dot bg-@(@driver.IsAllocated == false ? "success" : "danger")"></span>
                             </div>
-                            <h5 class="mb-1 fw-semibold">Driver @i</h5>
-                            <small class="text-muted d-block mb-2">Vehicle: TR@(1000 + i)</small>
+                            <h5 class="mb-1 fw-semibold">@driver.Drivername</h5>
+                            <small class="text-muted d-block mb-2">Vehicle Num: @driver.DriverVehicalNumber</small>
                             <div class="d-flex justify-content-center gap-2">
-                                <button class="btn btn-sm btn-outline-primary btn-hover-scale">
-                                    <i class="bi bi-chat-dots"></i>
-                                </button>
-                                <button class="btn btn-sm btn-gradient text-white btn-hover-scale"
-                                        data-bs-toggle="modal"
-                                        data-bs-target="#assignModal">
-                                    Assign
+                                <button class="btn btn-sm btn-gradient text-white btn-hover-scale driver-action-btn"
+                                        data-driver-id="@driver.Driverid"
+                                        data-is-allocated="@driver.IsAllocated.ToString().ToLower()">
+                                    @(driver.IsAllocated ? "Unassign" : "Assign")
                                 </button>
                             </div>
                         </div>
@@ -64,14 +63,21 @@
                 </div>
             }
         </div>
+
+        <div id="noResults" class="text-center py-5" style="display: none;">
+            <i class="bi bi-emoji-frown fs-1 text-muted"></i>
+            <p class="fs-5 mt-3 text-muted">No drivers found matching your criteria</p>
+        </div>
+
     </div>
 </div>
 
 <!-- Enhanced Modal -->
-<div class="modal fade" id="assignModal" tabindex="-1" aria-labelledby="assignModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-gradient text-white">
+<div class="modal" id="assignModal" tabindex="-1" aria-labelledby="assignModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered rounded-top-4">
+        <div class="modal-content border-0 shadow-lg rounded-top-4">
+            <div class="modal-header text-white rounded-top-4 position-relative py-4"
+                 style="background: linear-gradient(135deg, #0052d9 0%, #4364f7 50%, #6fb1fc 100%);">
                 <h5 class="modal-title"><i class="bi bi-person-check me-2"></i>Assign Driver</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -79,15 +85,13 @@
                 <form>
                     <div class="mb-3">
                         <label class="form-label">Select Driver</label>
-                        <select class="form-select">
-                            <option>Driver 1 - Available</option>
-                            <option>Driver 2 - On Route</option>
-                            <option>Driver 3 - Available</option>
+                        <select class="form-select" id="av_dr" onchange=handleDateChange(this) required>
+                            
                         </select>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Vehicle Number</label>
-                        <input type="text" class="form-control" placeholder="Enter vehicle number">
+                        <input type="text" id="veh_num" class="form-control" placeholder="Vehicle number" readonly>
                     </div>
                     <div class="d-grid gap-2 mt-4">
                         <button type="submit" class="btn btn-gradient text-white btn-hover-scale">
@@ -103,7 +107,396 @@
     </div>
 </div>
 
+<!-- Bootstrap Confirmation Modal -->
+<div class="modal" id="confirmDriverActionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="confirmModalTitle">Confirm Action</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p id="confirmModalMessage">Are you sure you want to perform this action?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="confirmActionBtn">Confirm</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+@section scripts {
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="~/js/site.js"></script>
+<script>
+    $(document).ready(function () {
+             document.body.appendChild(globalAlertContainer);
+
+             
+        
+    $.ajax({
+    
+           url: '@Url.Action("Available_drivers", "Home")',
+           type: "GET",
+          success: function (data) {
+          
+                       var DriverDropdown = $("#av_dr");
+                                        DriverDropdown.empty();
+                                        DriverDropdown.append('<option value="">Select an Available Driver </option>');
+
+                                        $.each(data, function (index, driver) {
+
+                            DriverDropdown.append('<option value="' + driver.Value + '">' + driver.Value + "-"+driver.Text + '</option>');
+                    });
+
+          },
+            error: function (xhr, status, error) {
+                    console.error("Error fetching drivers: ", error);
+                }
+    });
+    $("#assignModal").submit(function(e)
+       {
+           e.preventDefault();
+           const D_id = $("#av_dr").val();
+           
+            $.ajax({
+               url: '@Url.Action("Update_states", "Home")',
+               type: "POST",
+               data: { id:D_id },
+               success: function (response) {
+                   if(response.success)
+                   {
+                                showAlert(response.message,"success",1000);
+                                setTimeout(() => window.location.reload(), 1100);
+                   } 
+                  
+                    
+              },
+                error: function (xhr, status, error) 
+                   {
+                       showAlert("Error  comming"+error,"danger",2000);
+                   }
+             });
+
+
+
+        });
+
+             $('.filter-btn').on('click', function() {
+             // Toggle active class for filter buttons
+             $('.filter-btn').removeClass('active');
+             $(this).addClass('active');
+
+             const filterValue = $(this).data('filter');
+
+             // Show all items if filter is "all"
+             if (filterValue === 'all') {
+                 $('.col-6.col-md-2').show();
+             } else {
+                 // Hide all items first
+                 $('.col-6.col-md-2').hide();
+                 // Show only items matching the selected filter
+                 $(`.col-6.col-md-2[data-status="${filterValue}"]`).show();
+             }
+
+             // Check if there are any visible driver cards
+             const visibleDrivers = $('.col-6.col-md-2:visible').length;
+             if (visibleDrivers === 0) {
+                 $('#noResults').show();
+             } else {
+                 $('#noResults').hide();
+             }
+         });
+
+         // Search functionality
+         $('.search-input').on('input', function() {
+             const searchTerm = $(this).val().toLowerCase();
+
+             $('.col-6.col-md-2').each(function() {
+                 const driverName = $(this).data('driver-name');
+                 const vehicleNumber = $(this).data('vehicle-number');
+
+                 // Check if current filter is applied
+                 const currentFilter = $('.filter-btn.active').data('filter');
+                 const status = $(this).data('status');
+
+                 // Show or hide based on search term and current filter
+                 if ((driverName.includes(searchTerm) || vehicleNumber.includes(searchTerm)) &&
+                     (currentFilter === 'all' || status === currentFilter)) {
+                     $(this).show();
+                 } else {
+                     $(this).hide();
+                 }
+             });
+
+             // Check if there are any visible driver cards
+             const visibleDrivers = $('.col-6.col-md-2:visible').length;
+             if (visibleDrivers === 0) {
+                 $('#noResults').show();
+             } else {
+                 $('#noResults').hide();
+             }
+         });
+
+         // Driver action button click handler
+         $('.driver-action-btn').on('click', function() {
+             const driverId = $(this).data('driver-id');
+             const isAllocated = $(this).data('is-allocated');
+             const action = isAllocated === true ? 'unassign' : 'assign';
+
+             // Update the confirmation modal
+             $('#confirmModalTitle').text(action === 'assign' ? 'Confirm Assignment' : 'Confirm Unassignment');
+             $('#confirmModalMessage').text(`Are you sure you want to ${action} driver #${driverId}?`);
+
+             // Store the driver ID in the confirm button for later use
+             $('#confirmActionBtn').data('driver-id', driverId);
+             $('#confirmActionBtn').data('action', action);
+
+             // Show the modal
+             $('#confirmDriverActionModal').modal('show');
+         });
+
+         // Confirm action button handler
+         $('#confirmActionBtn').on('click', function() {
+             const driverId = $(this).data('driver-id');
+             const action = $(this).data('action');
+
+             // Here you would normally make an AJAX call to update the driver's status
+             // For demo purposes, we'll just update the UI
+             const driverCard = $(`.driver-action-btn[data-driver-id="${driverId}"]`).closest('.col-6.col-md-2');
+
+             if (action === 'assign') {
+                 driverCard.attr('data-status', 'assigned');
+                 driverCard.find('.avatar').removeClass('bg-gradient-success').addClass('bg-gradient-secondary');
+                 driverCard.find('.status-dot').removeClass('bg-success').addClass('bg-danger');
+                 driverCard.find('.driver-action-btn').text('Unassign').data('is-allocated', true);
+             } else {
+                 driverCard.attr('data-status', 'available');
+                 driverCard.find('.avatar').removeClass('bg-gradient-secondary').addClass('bg-gradient-success');
+                 driverCard.find('.status-dot').removeClass('bg-danger').addClass('bg-success');
+                 driverCard.find('.driver-action-btn').text('Assign').data('is-allocated', false);
+             }
+
+             // Update counts
+             updateDriverCounts();
+
+             // Apply current filter again
+             $('.filter-btn.active').trigger('click');
+
+             // Close the modal
+             $('#confirmDriverActionModal').modal('hide');
+         });
+
+         // Function to update driver counts in filter buttons
+         function updateDriverCounts() {
+             const totalDrivers = $('.col-6.col-md-2').length;
+             const assignedDrivers = $('.col-6.col-md-2[data-status="assigned"]').length;
+             const availableDrivers = totalDrivers - assignedDrivers;
+
+             $('.filter-btn[data-filter="all"]').text(`All (${totalDrivers})`);
+             $('.filter-btn[data-filter="available"]').text(`Not Assigned (${availableDrivers})`);
+             $('.filter-btn[data-filter="assigned"]').text(`Assigned (${assignedDrivers})`);
+         }
+
+         // ===== NEW CODE FOR FIXING MODAL BACKDROP ISSUE =====
+
+         // Fix for modal backdrop remaining issue
+         $('.modal').on('hidden.bs.modal', function () {
+             // Remove the modal backdrop when modal is hidden
+             $('.modal-backdrop').remove();
+             // Remove any inline styles added to body
+             $('body').css({
+                 'overflow': '',
+                 'padding-right': ''
+             });
+             // Remove modal-open class from body
+             $('body').removeClass('modal-open');
+         });
+
+         // Additional fix for clicking close button or ESC key
+         $('.btn-close, .modal button[data-bs-dismiss="modal"]').on('click', function() {
+             setTimeout(function() {
+                 if ($('.modal-backdrop').length > 0) {
+                     $('.modal-backdrop').remove();
+                     $('body').css({
+                         'overflow': '',
+                         'padding-right': ''
+                     });
+                     $('body').removeClass('modal-open');
+                 }
+             }, 200);
+         });
+
+         // Listen for ESC key to ensure backdrop is removed
+         $(document).on('keydown', function(e) {
+             if (e.key === 'Escape' && $('.modal-backdrop').length > 0) {
+                 setTimeout(function() {
+                     $('.modal-backdrop').remove();
+                     $('body').css({
+                         'overflow': '',
+                         'padding-right': ''
+                     });
+                     $('body').removeClass('modal-open');
+                 }, 200);
+             }
+         });
+
+            // Store the current driver action details
+        let currentDriverAction = {
+            id: null,
+            action: null,
+            isAllocated: null
+        };
+
+        $('.driver-action-btn').click(function() {
+            // Get driver details
+            const driverId = $(this).data('driver-id');
+            const isAllocated = $(this).data('is-allocated') === true; // Note: fixed comparison
+            const action = isAllocated ? 'unassign' : 'assign';
+
+            // Store the current action details
+            currentDriverAction = {
+                id: driverId,
+                action: action,
+                isAllocated: isAllocated
+            };
+
+            // Update modal content
+            $('#confirmModalTitle').text(`Confirm ${action}`);
+            $('#confirmModalMessage').text(`Are you sure you want to ${action} driver #${driverId}?`);
+
+            // Show the modal
+            const modal = new bootstrap.Modal(document.getElementById('confirmDriverActionModal'));
+            modal.show();
+        });
+
+        // Handle confirm button click
+        $('#confirmActionBtn').click(function() {
+            // Hide the modal
+            bootstrap.Modal.getInstance(document.getElementById('confirmDriverActionModal')).hide();
+
+            // Perform the AJAX call
+            $.ajax({
+                url: currentDriverAction.action === 'assign'
+                    ? '@Url.Action("AssignDriver", "Home")'
+                    : '@Url.Action("UnassignDriver", "Home")',
+                type: 'POST',
+                data: { id: currentDriverAction.id },
+                success: function(response) {
+                    if (response.success) {
+                                  showAlert(response.message, currentDriverAction.isAllocated ? "danger" : "success", 1000);
+                        setTimeout(() => window.location.reload(), 1100);
+                    }
+                },
+                error: function(xhr) {
+                    alert('Error: ' + xhr.responseText);
+                }
+            });
+        });
+   })
+
+     function handleDateChange(input)
+
+            {
+                const $input = $(input);
+
+                const value = $input.val();
+
+                if (!value) {
+                     
+                    input.setCustomValidity("Date is required");
+                         $("#veh_num").val("");
+
+                }
+                else
+                        {
+            input.setCustomValidity("");
+            $.ajax({
+                    url: '@Url.Action("GetVehicalbyId", "Home")',
+                type: "GET",
+                    data: { id: value },
+                success: function (data) {
+                    
+                    $("#veh_num").val(data); 
+
+                    console.log("Vehicle Number:", data);
+                },
+                error: function (xhr, status, error) {
+                    console.error("Error:", error);
+                }
+            });
+        }
+
+            }
+
+   
+
+</script>
+}
 <style>
+    .search-input {
+    border: 1px solid #e0e0e0;
+    border-radius: 50px;
+    padding: 8px 16px 8px 40px;
+    font-size: 14px;
+    transition: all 0.3s ease;
+    width: 220px;
+    background-color: #f8f9fa;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    position: relative;
+    outline: none;
+}
+
+.search-input:focus {
+    width: 280px;
+    border-color: #4d8cf4;
+    background-color: #ffffff;
+    box-shadow: 0 4px 8px rgba(77, 140, 244, 0.15);
+}
+
+.search-container {
+    position: relative;
+    display: inline-block;
+}
+
+.search-container::before {
+    content: "\f52a";
+    font-family: "bootstrap-icons";
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6c757d;
+    z-index: 2;
+    font-size: 16px;
+    pointer-events: none;
+    transition: color 0.3s ease;
+}
+
+.search-container:focus-within::before {
+    color: #4d8cf4;
+}
+
+/* Add a clear button */
+.search-container .clear-search {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6c757d;
+    cursor: pointer;
+    display: none;
+    font-size: 14px;
+    opacity: 0.7;
+    transition: opacity 0.2s ease;
+}
+
+.search-container .clear-search:hover {
+    opacity: 1;
+}
+
     .header-gradient {
         background: linear-gradient(135deg, #3a7bd5, #00d2ff);
     }
@@ -162,5 +555,36 @@
     #fluid
     {
       margin-bottom:8rem;
+    }
+
+    /* Add these styles to your existing CSS */
+    .search-input {
+        transition: all 0.3s ease;
+        min-width: 200px;
+    }
+
+        .search-input:focus {
+            border-color: #86b7fe;
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+        }
+
+    .filter-btn.active {
+        font-weight: 600;
+        position: relative;
+    }
+
+        .filter-btn.active:after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60%;
+            height: 2px;
+            background-color: currentColor;
+        }
+
+    #noResults {
+        transition: all 0.3s ease;
     }
 </style>
